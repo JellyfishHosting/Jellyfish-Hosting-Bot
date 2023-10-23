@@ -148,6 +148,72 @@ class Moderation(commands.Cog):
     async def timeout_error(self, ctx, error):
         if isinstance(error, commands.MissingRole):
             await ctx.respond("You are missing the required role to run this command. The role you require is *Timeout Perms*.\nIf you believe this is a mistake contact a management member.")
+    
+    @commands.slash_command(name="purge", description="Deletes the specified amount of messages from the channel. (if they are younger than 14 days.)", guild_ids=[config.guild_ids])
+    @commands.has_role(1165580024154439731)
+    async def purge(self, ctx : commands.Context, amount : discord.Option(int, description="The amount of message you want to delete. (max 100)", required=True)):
+        await ctx.defer()
+        date = datetime.today()
+        logChannel = self.bot.get_channel(config.moderation_log_channel)
+        if amount > 100:
+            await ctx.followup.send("Sorry, you can only delete up to 100 messages at a time.")
+            return
+        if amount > 1:
+            await ctx.followup.send("You have to want to delete at least 1 message.")
+            return
+        embed = discord.Embed(title="Messages Purged", description=f"I have successfully deleted {amount} message(s)", color=discord.Color.green())
+        logEmbed = discord.Embed(title="New Purge", description=f"A new purge has been requested by {ctx.author.mention}", color=discord.Color.blue())
+        logEmbed.add_field(name="Amount: ", value=f"{amount}", inline=False)
+        logEmbed.add_field(name="Channel: ", value=f"{ctx.channel.mention}", inline=False)
+        logEmbed.add_field(name="Date: ", value=f"{date.day}-{date.month}-{date.year}", inline=False)
+        try:
+            await ctx.channel.purge(limit=amount)
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when trying to purge the messages.\nError: ```{e}```")
+            return
+        await ctx.followup.send(embed=embed)
+        await logChannel.send(embed=logEmbed)
 
+    @purge.error
+    async def purge_error(self, ctx, error):
+        if isinstance(error, commands.MissingRole):
+            await ctx.respond("You are missing the required role to run this command. The role you require is *Purge Perms*.\nIf you believe this is a mistake contact a management member.")
+
+    @commands.slash_command(name="warn", description="Warns the specified user.", guild_ids=[config.guild_ids])
+    @commands.has_role(1165580124259881040)
+    async def warn(self, ctx : commands.Context, member : discord.Option(discord.SlashCommandOptionType.user, description="The member you want to warn.", required=True), reason : discord.Option(str, description="The reason why you want to warn the member.", required=True)):
+        await ctx.defer()
+        letters = string.ascii_letters
+        randomstring = ''.join(random.choice(letters) for i in range(6))
+        punishment_id = 'JF-' + randomstring
+        logChannel = self.bot.get_channel(config.moderation_log_channel)
+        date = datetime.today()
+        botuser = self.bot.get_user(self.bot.user.id)
+        if member.top_role >= ctx.author.top_role:
+            await ctx.followup.send("You can not warn someone that has a higher role than you or the same role as you.")
+            return
+        if botuser.top_role >= member.top_role:
+            await ctx.followup.send("I can not warn someone that has a higher role than me or the same role as me.")
+            return
+        embed = discord.Embed(title="User Warned", description="I have successfully warned the user.", color=discord.Color.green())
+        embed.add_field(name="User Name: ", value=f"{member.mention}", inline=False)
+        embed.add_field(name="Reason: ", value=f"{reason}", inline=False)
+        embed.add_field(name="Date: ", value=f"{date.day}-{date.month}-{date.year}", inline=False)
+        memberEmbed = discord.Embed(title="You Have Been Warned!", description="You have been warned in Jellyfish Hosting. To appeal please email appeals@jellyfishhosting.xyz", color=discord.Color.red())
+        memberEmbed.add_field(name="Staff Member: ", value=f"{ctx.author.mention}", inline=False)
+        memberEmbed.add_field(name="Reason: ", value=f"{reason}", inline=False)
+        memberEmbed.add_field(name="Date: ", value=f"{date.day}-{date.month}-{date.year}", inline=False)
+        logEmbed = discord.Embed(title="New Warn", description=f"A new user been warned by {ctx.author.mention}", color=discord.Color.blue())
+        logEmbed.add_field(name="User Name: ", value=f"{member.mention}", inline=False)
+        logEmbed.add_field(name="Reason: ", value=f"{reason}", inline=False)
+        logEmbed.add_field(name="Date: ", value=f"{date.day}-{date.month}-{date.year}", inline=False)
+        try:
+            await self.bot.punishments.insert({"username": member.name, "reason": reason, "timestamp": time.time(), 'punishment_id': punishment_id, 'type': 'warn'})
+        except Exception as e:
+            await ctx.followup.send("Sorry, there was an error when trying to add the warn entry.\nError: ```{e}```")
+            return
+        await ctx.followup.send(embed=embed)
+        await logChannel.send(embed=logEmbed)
+        await member.send(embed=memberEmbed)
 def setup(bot):
     bot.add_cog(Moderation(bot))
