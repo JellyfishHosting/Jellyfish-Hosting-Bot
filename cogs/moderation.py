@@ -275,7 +275,7 @@ class Moderation(commands.Cog):
     async def punishmentlookup(self, ctx : commands.Context, punishment_id : discord.Option(str, description="The punishment ID of the punishment you want to view.", required=True)):
         await ctx.defer()
         try:
-            data = await self.bot.punishments.find_one({"punishment_id": punishment_id})
+            data = await self.bot.punishments.find_by_custom({"punishment_id": punishment_id})
         except Exception as e:
             await ctx.followup.send(f"Sorry, there was an error when trying to lookup this punishment.\nError: ```{e}```")
             return
