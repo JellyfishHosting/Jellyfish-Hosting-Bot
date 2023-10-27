@@ -87,7 +87,64 @@ class Economy(commands.Cog):
     async def rob_error(self, ctx, error):
         if isinstance(error, commands.CommandOnCooldown):
             await ctx.respond(f"Slow it down! You can only rob someone every 1 hour. Try again in {error.retry_after:.2f}s!")
-            
+
+    @commands.slash_command(name="deposit", description="Deposits money into your bank account.", guild_ids=[config.guild_ids])
+    async def deposit(self, ctx : commands.Context, amount : discord.Option(discord.SlashCommandOptionType.integer, description="The amount of money you want to deposit.", required=True)):
+        await ctx.defer()
+        if amount < 1:
+            await ctx.followup.send("You have to deposit at least 1 coin.")
+            return
+        try:
+            data = await self.bot.economy.find_one({'username': ctx.author.name})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when trying to find the bank data.\nError: ```{e}```")
+            return
+        if data is None:
+            await ctx.followup.send("You don't have an economy account. Please create one by doing /balance.")
+            return
+        wallet_amount = data.get('wallet')
+        bank_amount = data.get('bank')
+        if wallet_amount < amount:
+            await ctx.followup.send(f"Sorry, you do not have {amount} coins in your wallet.")
+            return
+        updated_bank_amount = bank_amount + amount
+        updated_wallet_amount = wallet_amount - amount
+        try:
+            await self.bot.economy.update_by_custom({'username': ctx.author.name}, {'bank': updated_bank_amount, 'wallet': updated_wallet_amount})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when trying to add the updated amount.\nError: ```{e}```")
+            return
+        await ctx.followup.send(f"Success! I have deposited {amount} coins into your bank account.")
+
+    @commands.slash_command(name="withdraw", description="Withdraws money from your bank account.", guild_ids=[config.guild_ids])
+    async def withdraw(self, ctx : commands.Context, amount : discord.Option(discord.SlashCommandOptionType.integer, description="The amount of money you want to withdraw.", required=True)):
+        await ctx.defer()
+        if amount < 1:
+            await ctx.followup.send("You have to deposit at least 1 coin.")
+            return
+        try:
+            data = await self.bot.economy.find_one({'username': ctx.author.name})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when trying to find the bank data.\nError: ```{e}```")
+            return
+        if data is None:
+            await ctx.followup.send("You don't have an economy account. Please create one by doing /balance!")
+            return
+        wallet_amount = data.get('wallet')
+        bank_amount = data.get('bank')
+        if bank_amount < amount:
+            await ctx.followup.send(f"Sorry, you do not have {amount} coins in your wallet.")
+            return
+        updated_wallet_amount = wallet_amount + amount
+        update_bank_amount = bank_amount - amount
+        try:
+            await self.bot.economy.update_by_custom({'username': ctx.author.name}, {'bank': update_bank_amount, 'wallet': updated_wallet_amount})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when trying to add the updated amount.\nError: ```{e}```")
+            return
+        await ctx.followup.send(f"Success! You have withdrawn {amount} coins from your bank account.")
+    
+    
 
 def setup(bot):
     bot.add_cog(Economy(bot))
