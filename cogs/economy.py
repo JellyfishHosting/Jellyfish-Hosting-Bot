@@ -95,7 +95,7 @@ class Economy(commands.Cog):
             await ctx.followup.send("You have to deposit at least 1 coin.")
             return
         try:
-            data = await self.bot.economy.find_one({'username': ctx.author.name})
+            data = await self.bot.economy.find_by_custom({'username': ctx.author.name})
         except Exception as e:
             await ctx.followup.send(f"Sorry, there was an error when trying to find the bank data.\nError: ```{e}```")
             return
@@ -120,10 +120,10 @@ class Economy(commands.Cog):
     async def withdraw(self, ctx : commands.Context, amount : discord.Option(discord.SlashCommandOptionType.integer, description="The amount of money you want to withdraw.", required=True)):
         await ctx.defer()
         if amount < 1:
-            await ctx.followup.send("You have to deposit at least 1 coin.")
+            await ctx.followup.send("You have to withdraw at least 1 coin.")
             return
         try:
-            data = await self.bot.economy.find_one({'username': ctx.author.name})
+            data = await self.bot.economy.find_by_custom({'username': ctx.author.name})
         except Exception as e:
             await ctx.followup.send(f"Sorry, there was an error when trying to find the bank data.\nError: ```{e}```")
             return
@@ -148,11 +148,11 @@ class Economy(commands.Cog):
     async def transfer(self, ctx : commands.Context, member : discord.Option(discord.SlashCommandOptionType.user, description="The user you want to send coins to.", required=True), amount : discord.Option(discord.SlashCommandOptionType.integer, description="The amount of coins you want to transfer.", required=True)):
         await ctx.defer()
         if amount < 1:
-            await ctx.followup.send("You have to deposit at least 1 coin.")
+            await ctx.followup.send("You have to transfer at least 1 coin.")
             return
         try:
-            senderdata = await self.bot.economy.find_one({'username': ctx.author.name})
-            receiverdata = await self.bot.economy.find_one({'username': member.name})
+            senderdata = await self.bot.economy.find_by_custom({'username': ctx.author.name})
+            receiverdata = await self.bot.economy.find_by_custom({'username': member.name})
         except Exception as e:
             await ctx.followup.send(f"Sorry, there was an error trying to find bank data.\nError: ```{e}```")
             return
@@ -176,6 +176,56 @@ class Economy(commands.Cog):
             await ctx.followup.send(f"Sorry, there was an error when updating the economy accounts.\nError: ```{e}```")
             return
         await ctx.followup.send(f"You have transfered {amount} coins to {member.name}'s bank account.")
+
+    @commands.slash_command(name="slots", description="Lets you play a virtual slot game.", guild_ids=[config.guild_ids])
+    @commands.cooldown(1, 3600, commands.BucketType.user)
+    async def slots(self, ctx : commands.Context, amount: discord.Option(discord.SlashCommandOptionType.integer, description="The amount you want to bet.", required=True)):
+        await ctx.defer()
+        if amount < 1:
+            await ctx.followup.send("You have want to bet at least 1 coin.")
+            return
+        try:
+            data = await self.bot.economy.find_by_custom({'username': ctx.author.name})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when trying to find the bank data.\nError: ```{e}```")
+            return
+        if data is None:
+            await ctx.followup.send(f"You don't have an economy account. Please create one by doing /balance.")
+            return
+        wallet_amount = data.get('wallet')
+        if wallet_amount < amount:
+            await ctx.followup.send(f"Sorry, you do not have {amount} coins in your wallet.")
+            return
+        final = []
+        for i in range(3):
+            a = random.choice(["X","O","Q"])
+
+            final.append(a)
+
+        await ctx.followup.send(str(final))
+        if final[0] == final[1] or final[0] == final[2] or final[2] == final[1]:
+            winnings = amount * 2
+            win_updated_wallet_amount = winnings + wallet_amount
+            try:
+                await self.bot.economy.update_by_custom({'username': ctx.author.name}, {'wallet': win_updated_wallet_amount})
+            except Exception as e:
+                await ctx.send(f"Sorry, there was an error when trying to update your wallet amount.\nError: ```{e}```")
+                return
+            await ctx.send(f"You have won {winnings} coins.")
+        else:
+            try:
+                lose_updated_wallet_amount = wallet_amount - amount
+                await self.bot.economy.update_by_custom({'username': ctx.author.name}, {'wallet': lose_updated_wallet_amount})
+            except Exception as e:
+                await ctx.send(f"Sorry, there was an error when trying to update your wallet amount.\nError: ```{e}```")
+                return
+            await ctx.send(f"You lost!")
+
+    @slots.error
+    async def slots_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.respond(f"Slow it down! You can only play slots every hour. Try again in {error.retry_after:.2f}s!")
+            
     
 
 def setup(bot):
