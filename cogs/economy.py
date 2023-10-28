@@ -144,6 +144,38 @@ class Economy(commands.Cog):
             return
         await ctx.followup.send(f"Success! You have withdrawn {amount} coins from your bank account.")
     
+    @commands.slash_command(name="transfer", description="Lets you transfer an amount of coins to another user.", guild_ids=[config.guild_ids])
+    async def transfer(self, ctx : commands.Context, member : discord.Option(discord.SlashCommandOptionType.user, description="The user you want to send coins to.", required=True), amount : discord.Option(discord.SlashCommandOptionType.integer, description="The amount of coins you want to transfer.", required=True)):
+        await ctx.defer()
+        if amount < 1:
+            await ctx.followup.send("You have to deposit at least 1 coin.")
+            return
+        try:
+            senderdata = await self.bot.economy.find_one({'username': ctx.author.name})
+            receiverdata = await self.bot.economy.find_one({'username': member.name})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error trying to find bank data.\nError: ```{e}```")
+            return
+        if senderdata is None:
+            await ctx.followup.send("You don't have an economy account. Please create one by doing /balance!")
+            return
+        if receiverdata is None:
+            await ctx.followup.send("Sorry, the person you are trying to send coins to doesn't have an economy account. They can create one by doing /balance.")
+            return
+        sender_bank_amount = senderdata.get('bank')
+        receiver_bank_amount = receiverdata.get('bank')
+        if sender_bank_amount < amount:
+            await ctx.followup.send(f"Sorry, you do not have {amount} coins in your bank account.")
+            return
+        sender_updated_amount = sender_bank_amount - amount
+        receiver_updated_amount = receiver_bank_amount + amount
+        try:
+            await self.bot.economy.update_by_custom({'username': member.name}, {'bank': receiver_updated_amount})
+            await self.bot.economy.update_by_custom({'username': ctx.author.name}, {'bank': sender_updated_amount})
+        except Exception as e:
+            await ctx.followup.send(f"Sorry, there was an error when updating the economy accounts.\nError: ```{e}```")
+            return
+        await ctx.followup.send(f"You have transfered {amount} coins to {member.name}'s bank account.")
     
 
 def setup(bot):
