@@ -9,6 +9,7 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.all(), disableEve
 
 @bot.event
 async def on_ready():
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"over {len(bot.users)} users in JFH"))
     print("Bot is ready!")
 
 for filename in os.listdir('./cogs'):
