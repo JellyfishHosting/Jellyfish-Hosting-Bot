@@ -25,5 +25,6 @@ if __name__ == "__main__":
     bot.db = bot.mongo['jellyfishhostbot']
     bot.punishments = Document(bot.db, 'punishments')
     bot.economy = Document(bot.db, 'economy')
+    bot.suggestions = Document(bot.db, 'suggestions')
 
 bot.run(config.token)
